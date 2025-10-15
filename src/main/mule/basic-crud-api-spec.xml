@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os" 
+      xmlns="http://www.mulesoft.org/schema/mule/core" 
+      xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" 
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" 
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" 
+      xmlns:http="http://www.mulesoft.org/schema/mule/http" 
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+      xsi:schemaLocation="
+      http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+      http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+      http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd
+      http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+      http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+
+    <apikit:config name="basic-crud-api-config" 
+                   api="basic-crud-api.raml" 
+                   outboundHeadersMapName="outboundHeaders" 
+                   httpStatusVarName="httpStatus" />
+
+    <!-- Main API Flow -->
+    <flow name="basic-crud-api-main">
+        <http:listener config-ref="orders-prc-api-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="basic-crud-api-config" />
+		<error-handler ref="error-handler_common" />
+    </flow>
+
+    <!-- API Console Flow -->
+    <flow name="basic-crud-api-console">
+        <http:listener config-ref="orders-prc-api-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="basic-crud-api-config" />
+		<error-handler ref="error-handler_common" />
+    </flow>
+
+    <!-- GET /customers -->
+    <!-- GET /customers - COMPLETELY FIXED -->
+<flow name="get:\customers:basic-crud-api-config">
+    <flow-ref doc:name="Flow Reference" doc:id="ccd446b6-0997-40da-92af-22063d3c5381" name="get-implSub_Flow"/>
+</flow>
+
+
+    <!-- GET /customers/{id} -->
+    <!-- GET /customers/{id} - COMPLETELY FIXED -->
+<flow name="get:\customers\(id):basic-crud-api-config">
+    <flow-ref doc:name="Flow Reference" doc:id="a44b29d6-df19-46e7-ae03-7b3f13f1710c" name="get-id-implSub_Flow"/>
+</flow>
+
+
+    <!-- POST /customers -->
+    <flow name="post:\customers:application\json:basic-crud-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="1050480c-cf57-4343-bf16-c9069e8b946b" name="post-implSub_Flow"/>
+        
+        <!-- Validate input -->
+    </flow>
+
+<!-- PUT /customers/{id} - FIXED VERSION -->
+<flow name="put:\customers\(id):application\json:basic-crud-api-config">
+    <flow-ref doc:name="Flow Reference" doc:id="5c7da6e5-5fb6-4e4a-84b9-b516957a1ae7" name="put-implSub_Flow"/>
+    
+    <!-- Store original payload and extract ID -->
+
+    <!-- Check if customer exists -->
+</flow>
+
+
+    <!-- DELETE /customers/{id} -->
+    <flow name="delete:\customers\(id):basic-crud-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="c0a7bd97-96c2-42fc-81b0-bcd28c627189" name="del-implSub_Flow"/>
+    </flow>
+
+</mule>

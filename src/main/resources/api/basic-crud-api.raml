@@ -1,0 +1,167 @@
+#%RAML 1.0
+title: Customers API
+version: v1
+baseUri: https://anypoint.mulesoft.com/mocking/api/v1/links/6e6bf1d4-0ac5-497c-861d-aa10f1a31c7f
+mediaType: application/json
+
+types:
+  Customer:
+    type: object
+    properties:
+      id?: integer
+      name: string
+      email: string
+      phone?: string
+      address?: string
+    example:
+      id: 1
+      name: "Pujitha"
+      email: "pujitha@example.com"
+      phone: "9876543210"
+      address: "Hyderabad, India"
+
+  ErrorResponse:
+    type: object
+    properties:
+      message: string
+      code: integer
+    example:
+      message: "Customer not found"
+      code: 404
+
+/customers:
+  get:
+    description: Retrieve all customers
+    responses:
+      200:
+        body:
+          application/json:
+            type: Customer[]
+            example:
+              [
+                {
+                  "id": 1,
+                  "name": "Pujitha",
+                  "email": "pujitha@example.com",
+                  "phone": "9876543210",
+                  "address": "Hyderabad"
+                },
+                {
+                  "id": 2,
+                  "name": "Yagna",
+                  "email": "yagna@example.com",
+                  "phone": "9876501234",
+                  "address": "Vijayawada"
+                }
+              ]
+
+  post:
+    description: Create a new customer
+    body:
+      application/json:
+        type: Customer
+        example:
+          name: "Pujitha"
+          email: "pujitha@example.com"
+          phone: "9876543210"
+          address: "Hyderabad"
+    responses:
+      201:
+        description: Customer created successfully
+        body:
+          application/json:
+            type: Customer
+            example:
+              id: 3
+              name: "Pujitha"
+              email: "pujitha@example.com"
+              phone: "9876543210"
+              address: "Hyderabad"
+      400:
+        description: Invalid input
+        body:
+          application/json:
+            type: ErrorResponse
+            example:
+              message: "Invalid customer data"
+              code: 400
+
+  /{id}:
+    uriParameters:
+      id:
+        type: integer
+        required: true
+        example: 1
+
+    get:
+      description: Retrieve a specific customer by ID
+      responses:
+        200:
+          body:
+            application/json:
+              type: Customer
+              example:
+                id: 1
+                name: "Pujitha"
+                email: "pujitha@example.com"
+                phone: "9876543210"
+                address: "Hyderabad"
+        404:
+          body:
+            application/json:
+              type: ErrorResponse
+              example:
+                message: "Customer not found"
+                code: 404
+
+    put:
+      description: Update an existing customer
+      body:
+        application/json:
+          type: Customer
+          example:
+            name: "Pujitha R"
+            email: "pujitha.r@example.com"
+            phone: "9876500000"
+            address: "Hyderabad"
+      responses:
+        200:
+          description: Customer updated successfully
+          body:
+            application/json:
+              type: Customer
+              example:
+                id: 1
+                name: "Pujitha R"
+                email: "pujitha.r@example.com"
+                phone: "9876500000"
+                address: "Hyderabad"
+        400:
+          description: Invalid input
+          body:
+            application/json:
+              type: ErrorResponse
+              example:
+                message: "Invalid customer data"
+                code: 400
+        404:
+          description: Customer not found
+          body:
+            application/json:
+              type: ErrorResponse
+              example:
+                message: "Customer not found"
+                code: 404
+
+    delete:
+      description: Delete a customer by ID
+      responses:
+        204:
+          description: Customer deleted successfully (No Content)
+        404:
+          body:
+            application/json:
+              type: ErrorResponse
+              example:
+                message: "Customer not found"
+                code: 404

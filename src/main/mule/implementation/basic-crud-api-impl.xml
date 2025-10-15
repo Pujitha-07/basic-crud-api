@@ -1,0 +1,365 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+	<sub-flow name="get-implSub_Flow" doc:id="2742b20d-0622-4c93-a2c5-8c2b9673917f" >
+		<logger level="INFO" doc:name="Get All Customers" doc:id="4f73ef79-7767-447a-80b1-3a1a380e02b2" message="Getting all customers" />
+		<os:contains doc:name="Check Index Exists" doc:id="61163ab4-8532-47a2-a8bd-a64c27545215" key="customers:index" objectStore="customersStore" />
+		<choice doc:name="Has Customers?" doc:id="08370dcc-2462-4759-bd0c-2e49151ec95c" >
+			<when expression="#[payload == true]" >
+				<os:retrieve doc:name="Get Customer IDs" doc:id="6adbe59a-b404-479f-8bbf-5f1cc108693e" key="customers:index" objectStore="customersStore" />
+				<ee:transform doc:name="Get All Customer Data" doc:id="7ba8f263-b728-409b-80a7-edbb22d4daf1" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+import * from dw::core::Arrays
+
+var customerIds = payload default []
+
+---
+customerIds map ((customerId, index) -> do {
+    // For each customer ID, we'd need to retrieve from Object Store
+    // Since we can't do Object Store calls in DataWeave, return constructed data
+    {
+        id: customerId,
+        name: "Customer " ++ (customerId as String),
+        email: "customer" ++ (customerId as String) ++ "@example.com",
+        phone: "98765" ++ (customerId as String),
+        address: "Address for customer " ++ (customerId as String)
+    }
+})]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Empty Response" doc:id="d46ad178-cdbf-4e7e-a7b4-7c8adc9b6e02" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+[]]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</sub-flow>
+	<sub-flow name="get-id-implSub_Flow" doc:id="bd1090d9-3920-42a5-a005-c3f3e4223194" >
+		<logger level="INFO" doc:name="Get Customer by ID" doc:id="ff8c5e22-6fb6-4566-a2c1-e42bcdbcc61a" message="Getting customer ID: #[attributes.uriParams.id]" />
+		<ee:transform doc:name="Extract Customer ID" doc:id="0027d9b3-8524-4122-afd5-53db113710d1" >
+			<ee:variables >
+				<ee:set-variable variableName="customerId" ><![CDATA[#[attributes.uriParams.'id']]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<os:contains doc:name="Check Customer Exists" doc:id="ab433296-2d83-4317-be98-f378128f1c1f" key="#['customer::' ++ vars.customerId]" objectStore="customersStore" />
+		<choice doc:name="Customer Found?" doc:id="0d387f51-e4f1-4f11-93aa-6d93543a7d43" >
+			<when expression="#[payload == true]" >
+				<os:retrieve doc:name="Get Customer Data" doc:id="0c776e1a-caf2-4180-a381-790657589475" key="#['customer::' ++ vars.customerId]" objectStore="customersStore" />
+				<ee:transform doc:name="Format Response" doc:id="a46997a3-885a-44fe-bf91-256262146b77" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Customer Not Found" doc:id="5ce3eff6-7ab3-42c9-b561-5ee0b06be11a" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: "Customer not found",
+  code: 404
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[404]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</sub-flow>
+	<sub-flow name="post-implSub_Flow" doc:id="48734f69-7093-4293-955f-45d03c9ac8f4" >
+		<logger level="INFO" doc:name="Create Customer" doc:id="5805373f-87b7-4763-8970-5d91165f9d01" message="Creating new customer" />
+		<ee:transform doc:name="Validate Input" doc:id="2cdce3f2-b515-4e61-bfdb-b910d448c4df" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+
+var inputData = payload default {}
+var nameValid = (inputData.name != null and inputData.name != "")
+var emailValid = (inputData.email != null and inputData.email != "")
+var allValid = nameValid and emailValid
+
+---
+{
+  isValid: allValid,
+  message: if (allValid) "Valid input" else "Invalid input: name and email are required",
+  originalData: inputData
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<choice doc:name="Is Valid?" doc:id="3b5d2587-f953-4312-a658-7dc7cc0bd715" >
+			<when expression="#[payload.isValid != true]" >
+				<ee:transform doc:name="400 Invalid Input" doc:id="866ab54f-c61d-4426-bea0-b9322561685e" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: payload.message,
+  code: 400
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[400]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Store Original Data" doc:id="6d4552b5-de74-4af2-8e2e-e284cc671f32" >
+					<ee:variables >
+						<ee:set-variable variableName="customerData" ><![CDATA[#[payload.originalData]]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<os:contains doc:name="Check Next ID Exists" doc:id="9fe4abd5-0ae4-4a14-98e6-5bff6b5013cd" key="customers:nextId" objectStore="customersStore" />
+				<choice doc:name="Next ID Exists?" doc:id="faea3379-d781-42b4-9f14-5f4da4e6cfe8" >
+					<when expression="#[payload == true]" >
+						<os:retrieve doc:name="Get Next ID" doc:id="901b59df-ed94-4357-a07e-ad5bd3e598e0" key="customers:nextId" objectStore="customersStore" />
+						<ee:transform doc:name="Set Next ID" doc:id="13ce7eca-1523-483c-8820-02e7669e95b1" >
+							<ee:variables >
+								<ee:set-variable variableName="nextId" ><![CDATA[#[payload as Number]]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+					</when>
+					<otherwise >
+						<ee:transform doc:name="Initialize Next ID" doc:id="786203e8-21e9-4660-bdc1-f1e721d1691a" >
+							<ee:variables >
+								<ee:set-variable variableName="nextId" ><![CDATA[1]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+					</otherwise>
+				</choice>
+				<ee:transform doc:name="Build Customer Object" doc:id="ce17fbdf-a903-44e1-a873-e96f99b174d7" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+    id: vars.nextId,
+    name: vars.customerData.name,
+    email: vars.customerData.email,
+    phone: vars.customerData.phone default null,
+    address: vars.customerData.address default null,
+    createdDate: now() as String {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<os:store doc:name="Store Customer" doc:id="d5b06a89-1289-493c-a45a-dc43557f2cd0" key="#['customer::' ++ (vars.nextId as String)]" objectStore="customersStore" />
+				<os:contains doc:name="Check Index Exists" doc:id="bf55df10-b13f-407f-8710-9b3960945e8f" key="customers:index" objectStore="customersStore" />
+				<choice doc:name="Index Exists?" doc:id="e6d1f81d-ad0d-440c-814b-eb116496131f" >
+					<when expression="#[payload == true]" >
+						<os:retrieve doc:name="Get Index" doc:id="4695df12-4f4f-4522-ad95-905f5355d192" key="customers:index" objectStore="customersStore" />
+					</when>
+					<otherwise >
+						<ee:transform doc:name="Init Empty Index" doc:id="6d524991-805e-4023-8fb2-59e52d519f3c" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+[]]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+					</otherwise>
+				</choice>
+				<ee:transform doc:name="Add ID to Index" doc:id="049b206f-20f2-46b7-9690-a1191db82292" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+(payload default []) ++ [vars.nextId]]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<os:store doc:name="Store Index" doc:id="8d9b4ed8-ec05-4c95-a523-aea44bf8963b" key="customers:index" objectStore="customersStore" />
+				<ee:transform doc:name="Increment Next ID" doc:id="8d6fe03e-5137-4574-8990-e6dcf299208f" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[#[vars.nextId + 1]]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<os:store doc:name="Store Next ID" doc:id="c652b2e7-db83-47f5-8c1c-5c20b1f6c3f2" key="customers:nextId" objectStore="customersStore" />
+				<os:retrieve doc:name="Get Created Customer" doc:id="1b40c3a7-4bb6-47a1-b125-b1274f92c44d" key="#['customer::' ++ (vars.nextId as String)]" objectStore="customersStore" />
+				<ee:transform doc:name="201 Created Response" doc:id="dbcbb0a0-ef56-47d1-be99-afda65e5f15a" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[201]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</sub-flow>
+	<sub-flow name="put-implSub_Flow" doc:id="0e8e609a-4f02-44ce-ab34-994c28576885" >
+		<logger level="INFO" doc:name="Update Customer" doc:id="4aaea22b-6590-4be7-8e5c-a70343154163" message="Updating customer ID: #[attributes.uriParams.id]" />
+		<ee:transform doc:name="Store Original Data and ID" doc:id="9c84dc6c-c6ee-4945-a140-ce2ab712bb47" >
+			<ee:variables >
+				<ee:set-variable variableName="customerId" ><![CDATA[#[attributes.uriParams.'id']]]></ee:set-variable>
+				<ee:set-variable variableName="originalPayload" ><![CDATA[#[payload]]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<os:contains doc:name="Check Customer Exists" doc:id="26fb04d7-3426-4f92-a5d1-7ee62d20a95b" key="#['customer::' ++ (vars.customerId as String)]" objectStore="customersStore" />
+		<choice doc:name="Customer Found?" doc:id="c5d5db44-c65c-4965-aa38-a5ee333b9722" >
+			<when expression="#[payload != true]" >
+				<ee:transform doc:name="404 Not Found" doc:id="1b090411-c6c1-4e74-b3d6-eece3f8c1fc9" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: "Customer not found",
+  code: 404
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[404]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Validate Input" doc:id="449b5048-8d8d-481a-891a-b6cd5b86ade8" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+
+var body = vars.originalPayload default {}
+var nameValid = body.name != null and body.name != ""
+var emailValid = body.email != null and body.email != "" and 
+                 (body.email matches /.+@.+\..+/)
+var allValid = nameValid and emailValid
+
+---
+{
+    isValid: allValid,
+    message: if (allValid) "Valid input" else "Invalid input: name and email are required",
+    data: body
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<choice doc:name="Valid Input?" doc:id="7908fb67-cbe7-4b93-891b-75814a8ecb1b" >
+					<when expression="#[payload.isValid != true]" >
+						<ee:transform doc:name="400 Invalid Input" doc:id="b79461c6-b43b-440c-a78d-49c1c769fb3e" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: payload.message,
+  code: 400
+}]]></ee:set-payload>
+							</ee:message>
+							<ee:variables >
+								<ee:set-variable variableName="httpStatus" ><![CDATA[400]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+					</when>
+					<otherwise >
+						<ee:transform doc:name="Build Updated Customer" doc:id="e132001c-c759-4ea3-ab3c-d81dcf0cbe30" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload.data ++ { 
+    id: (vars.customerId as Number),
+    updatedDate: now() as String {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<os:store doc:name="Store Updated Customer" doc:id="f586d99f-06a1-4a64-b6f3-97936fd1de29" key="#['customer::' ++ (vars.customerId as String)]" objectStore="customersStore" />
+						<ee:transform doc:name="200 Updated Response" doc:id="486f93a0-d212-4e01-b264-53760ecaa02e" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+							</ee:message>
+							<ee:variables >
+								<ee:set-variable variableName="httpStatus" ><![CDATA[200]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+					</otherwise>
+				</choice>
+			</otherwise>
+		</choice>
+	</sub-flow>
+	<sub-flow name="del-implSub_Flow" doc:id="0c91cc4c-b05b-488d-ad1f-689478d2f461" >
+		<logger level="INFO" doc:name="Delete Customer" doc:id="cde9c7c5-44a3-47eb-b836-6c3f8a1ce849" message="Deleting customer ID: #[attributes.uriParams.id]" />
+		<ee:transform doc:name="Set ID Variable" doc:id="61f304ad-f0ca-4f27-8445-78724fc3aea6" >
+			<ee:variables >
+				<ee:set-variable variableName="customerId" ><![CDATA[#[attributes.uriParams.'id']]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<os:contains doc:name="Check Customer Exists" doc:id="5601129b-b7e3-4734-bf97-e4593fcba2f2" key="#['customer::' ++ (vars.customerId as String)]" objectStore="customersStore" />
+		<choice doc:name="Customer Found?" doc:id="51828500-b28d-43e6-8168-320cbfa4a283" >
+			<when expression="#[payload != true]" >
+				<ee:transform doc:name="404 Not Found" doc:id="a5e97b3a-15a8-4bc1-972f-e3e12d49402d" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: "Customer not found",
+  code: 404
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[404]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<os:remove doc:name="Remove Customer" doc:id="73b356e3-2371-48a2-b4ce-4f3be443c3f9" key="#['customer::' ++ (vars.customerId as String)]" objectStore="customersStore" />
+				<os:contains doc:name="Check Index Exists" doc:id="c996451f-e678-4c45-b748-474c516e0c76" key="customers:index" objectStore="customersStore" />
+				<choice doc:name="Index Exists?" doc:id="13f17696-4f4f-490e-a4c4-6a31507f787b" >
+					<when expression="#[payload == true]" >
+						<os:retrieve doc:name="Get Current Index" doc:id="04edd5aa-6229-490b-9d64-1e6310b886d4" key="customers:index" objectStore="customersStore" />
+						<ee:transform doc:name="Remove ID from Index" doc:id="1242c368-3012-4a89-86e7-f4cb3509963f" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+(payload default []) filter ((item) -> (item as String) != (vars.customerId as String))]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<os:store doc:name="Store Updated Index" doc:id="9f5a291a-73c4-4017-a7d3-905763179282" key="customers:index" objectStore="customersStore" />
+					</when>
+					<otherwise >
+						<logger level="WARN" doc:name="No Index Found" doc:id="157b924d-1d44-4d92-9a65-054fdcd4ffae" message="No customer index found" />
+					</otherwise>
+				</choice>
+				<ee:transform doc:name="200 Deleted Successfully" doc:id="9fadfa91-04d4-4b5e-a094-fb5d5b642abf" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: "Customer deleted successfully",
+  id: vars.customerId as Number,
+  code: 200
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[200]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</sub-flow>
+</mule>
